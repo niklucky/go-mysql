@@ -11,11 +11,15 @@ import (
 	_ "github.com/go-sql-driver/mysql" // mysql
 )
 
+/*
+Mapper - MySQL mapper DAO
+*/
 type Mapper struct {
-	DBConfig DBConfig
-	Conn     *sql.DB
-	Source   string
-	Logger   Logger
+	DBConfig        DBConfig
+	Conn            *sql.DB
+	Source          string
+	Logger          Logger
+	BuildCollection func(*sql.Rows) ([]interface{}, error)
 }
 
 /*
@@ -48,6 +52,9 @@ func New(config DBConfig) Mapper {
 	}
 }
 
+/*
+Connect - connecting to DB
+*/
 func (mapper *Mapper) Connect() error {
 	dbConfig := mapper.DBConfig
 	connectionString := fmt.Sprintf("%v:%v@tcp(%v:%v)/%v",
@@ -57,7 +64,7 @@ func (mapper *Mapper) Connect() error {
 		dbConfig.Port,
 		dbConfig.Database,
 	)
-	mapper.Logger.Log("Connecting to mysql: " + dbConfig.Host + ":" + dbConfig.Port)
+	mapper.log("Connecting to mysql: ", mapper.getDbInfo())
 	conn, err := sql.Open("mysql", connectionString)
 	if err != nil {
 		return err
@@ -65,14 +72,21 @@ func (mapper *Mapper) Connect() error {
 	if conn == nil {
 		return errors.New("Connection to MySQL is nil")
 	}
+	mapper.log("Connected to mysql: ", mapper.getDbInfo())
 	mapper.Conn = conn
 	return nil
 }
 
+/*
+Exec - executing query
+*/
 func (mapper *Mapper) Exec(query string) (*sql.Rows, error) {
 	return mapper.Query(query)
 }
 
+/*
+Query - executing query (same as Exec)
+*/
 func (mapper *Mapper) Query(query string) (*sql.Rows, error) {
 	if mapper.Conn == nil {
 		err := mapper.Connect()
@@ -147,10 +161,26 @@ func (mapper *Mapper) Load(source string, fields string, query interface{}) (*sq
 	return rows, nil
 }
 
+/*
+Close - closing connection
+*/
 func (mapper *Mapper) Close() error {
 	log.Println("Closing connection in mapper")
 	if mapper.Conn != nil {
 		return mapper.Conn.Close()
 	}
 	return nil
+}
+
+func (mapper *Mapper) log(data ...interface{}) error {
+	if mapper.Logger != nil {
+		return mapper.Logger.Log(data)
+	}
+	_, err := fmt.Println(data...)
+	return err
+}
+
+func (mapper *Mapper) getDbInfo() string {
+	c := mapper.DBConfig
+	return c.User + "@" + c.Host + ":" + c.Port + "/" + c.Database
 }
