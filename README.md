@@ -1,0 +1,2 @@
+# Go MySQL mapper
+
